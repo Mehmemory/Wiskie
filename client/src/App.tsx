@@ -8,18 +8,32 @@ import Base from "./pages/Base"
 import Schedules from "./pages/schedules"
 import Editor from "./pages/editor"
 import axios from 'axios' 
-import type { ApiResponse } from "../../shared/api-types"
+import type { ApiResponse, ScheduleDto, SchedulesResponse } from "../../shared/api-types"
 
-
-const response = await axios.get<ApiResponse>(
-  "http://localhost:8080/api/schedules"
-)
-
-console.log(response.data.schedules)
 
 function App() {
 
+  const [schedules, setSchedules] = useState<ScheduleDto[]>([])
+
+  useEffect(() => {
+    async function loadSchedules() {
+      try {
+        const response = await axios.get<SchedulesResponse>(
+          "http://localhost:8080/api/schedules",
+        )
+
+        setSchedules(response.data.schedules)
+      } catch (error) {
+        console.error("Could not load schedules:", error)
+      }
+    }
+
+    loadSchedules()
+  }, [])
+
+
   const [hope, setHope] = useState<string[]>([])
+
 
   const fetchApi = async () => {
     try {
@@ -46,7 +60,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home hope={hope} />} />
         <Route path="/base" element={<Base />} />
-        <Route path="/schedules" element={<Schedules hope={hope} />} />
+        <Route path="/schedules" element={<Schedules hope={hope} schedules={schedules} />} />
         <Route path="/editor" element={<Editor />} />
       </Routes>
     </BrowserRouter>

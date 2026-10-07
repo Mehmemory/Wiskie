@@ -17,7 +17,10 @@ export type ScheduleDto = {
 }
 
 export type ApiResponse = {
-  schedules: ScheduleDto[]
   hope: string[]
   message: string
+}
+
+export type SchedulesResponse = {
+  schedules: ScheduleDto[]
 }
