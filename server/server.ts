@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { Schedule } from "./src/schedule"
 
 const app = express();
 const corsOptions = {
@@ -14,6 +15,18 @@ app.get("/api", (_req, res) => {
         hope: ["this", "works", "now"]
     });
 });
+
+app.get("/api/schedules", (_req, res) => {
+  const response = {
+    schedules: [
+      {
+        timeslots: [[], [], [], [], [], [], []],
+      },
+    ],
+  }
+
+  res.json(response)
+})
 
 app.listen(8080, () => {
     console.log("Server is running on port 8080");

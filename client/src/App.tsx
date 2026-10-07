@@ -8,11 +8,14 @@ import Base from "./pages/Base"
 import Schedules from "./pages/schedules"
 import Editor from "./pages/editor"
 import axios from 'axios' 
+import type { ApiResponse } from "../../shared/api-types"
 
-type ApiResponse = {
-  message: string
-  hope: string[]
-}
+
+const response = await axios.get<ApiResponse>(
+  "http://localhost:8080/api/schedules"
+)
+
+console.log(response.data.schedules)
 
 function App() {
 
@@ -33,12 +36,17 @@ function App() {
     fetchApi();
   }, []);
 
+
+
+
+  
+
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home hope={hope} />} />
         <Route path="/base" element={<Base />} />
-        <Route path="/schedules" element={<Schedules />} />
+        <Route path="/schedules" element={<Schedules hope={hope} />} />
         <Route path="/editor" element={<Editor />} />
       </Routes>
     </BrowserRouter>
