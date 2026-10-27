@@ -21,6 +21,7 @@ app.get("/api", (_req, res) => {
 
 const schedule = new Schedule()
 
+// Add a sample timeslot
 schedule.addTimeslot(
   new Timeslot(
     new Day(9, 0),          // start time
@@ -29,7 +30,7 @@ schedule.addTimeslot(
     false,                  // freetime
     "Computer Science",     // name
     1,                      // priority
-    "Lecture",              // description
+    "Test",              // description
   ),
 )
 
@@ -39,16 +40,10 @@ app.get("/api/schedules", (_req, res) => {
       {
         timeslots: schedule.timeslots.map((day) =>
           day.map((slot) => ({
-            name: slot.getName(),
+            name: slot.getName(), 
             weekday: slot.getWeekday(),
-            startTime: {
-              hour: slot.getStartTime().hour,
-              minute: slot.getStartTime().minute,
-            },
-            endTime: {
-              hour: slot.getEndTime().hour,
-              minute: slot.getEndTime().minute,
-            },
+            startTime: {hour: slot.getStartTime().hour, minute: slot.getStartTime().minute, },
+            endTime: {hour: slot.getEndTime().hour, minute: slot.getEndTime().minute, },
             description: slot.getDescription(),
             priority: slot.getPriority(),
           })),
