@@ -99,36 +99,17 @@ function addEntry(schedules: ScheduleDto[], scheduleIndex: number, dayIndex: num
 
     return (
      <form onSubmit={handleSubmit}>
-      <label>
-        Name: <input type="text" name="name" />
-      </label>
-      <label>
-        Description: <textarea name="message" />
-      </label>
-      <label>
-        Start Time: <input type="time" name="startTime" />
-      </label>
-      <label>
-        End Time: <input type="time" name="endTime" />
-      </label>
-      <label>
-        Day:   <select name="day" required defaultValue="">
-              <option value="" disabled>
-              Choose a day
-              </option>
+      <label> Name: <input type="text" name="name" /> </label>
+      <label> Description: <textarea name="message" /> </label>
+      <label> Start Time: <input type="time" name="startTime" /> </label>
+      <label> End Time: <input type="time" name="endTime" /> </label>
+      <label> Day:   <select name="day" required defaultValue="">
+              <option value="" disabled> Choose a day </option>
               {dayNames.map((day, index) => (
-              <option key={day} value={index}>
-              {day}
-              </option>
-             ))}
-          </select>
-      </label>
-        <label>
-        Freetime: <input type="checkbox" name="freetime" />
-      </label>
-        <label>
-        Priority: <input type="number" name="priority" />
-      </label>
+              <option key={day} value={index}> {day} </option>
+             ))} </select> </label>
+      <label> Freetime: <input type="checkbox" name="freetime" /> </label>
+      <label> Priority: <input type="number" name="priority" /> </label>
       <button type="submit">Submit</button>
     </form>
     )

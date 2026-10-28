@@ -10,6 +10,10 @@ type HomeProps = {
   hope: string[]
 }
 
+function handleClick() {
+  alert("Button clicked!");
+}
+
 function Home({ hope }: HomeProps) {
   return (
     <div>
@@ -20,6 +24,8 @@ function Home({ hope }: HomeProps) {
           <p key={index}>{item}</p>
         ))
       }
+
+      <button onClick={handleClick}>Click me</button>
 
       <Link to="/">Go to Home</Link>
       <Link to="/base">Go to Base</Link>
