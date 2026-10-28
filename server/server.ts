@@ -11,12 +11,22 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(express.json());
 
 app.get("/api", (_req, res) => {
     res.json({
         message: "Hello from server!",
         hope: ["this", "works", "now"]
     });
+});
+
+app.post("/api/incriment", (req, res) => { 
+    const number = Number(req.body.number);
+    console.log("Received number from client:", number);
+    const incrementedNumber = number + 1;
+    console.log("Incremented number:", incrementedNumber);
+    res.json({ number: incrementedNumber });
+
 });
 
 const schedule = new Schedule()

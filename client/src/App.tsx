@@ -21,7 +21,6 @@ function App() {
         const response = await axios.get<SchedulesResponse>(
           "http://localhost:8080/api/schedules",
         )
-
         setSchedules(response.data.schedules)
       } catch (error) {
         console.error("Could not load schedules:", error)
