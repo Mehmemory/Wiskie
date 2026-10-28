@@ -1,6 +1,7 @@
-import { Link } from "react-router-dom";
+import { data, Link } from "react-router-dom";
+import type { FormEvent } from "react"
 
-import type { DayDto, ScheduleDto } from "../../../shared/api-types"
+import type { DayDto, ScheduleDto, TimeslotDto } from "../../../shared/api-types"
 
 
 type SchedulesProps = {
@@ -27,21 +28,73 @@ function formatTime(time: DayDto | null) {
   return `${hour}:${minute}`
 }
 
+
+
 function addEntry(schedules: ScheduleDto[], scheduleIndex: number, dayIndex: number, slot: any) {
+    
+    function parseTime(value: FormDataEntryValue | null): DayDto | null {
+      if (typeof value !== "string" || value === "") return null
+
+      const [hour, minute] = value.split(":").map(Number)
+      if (!Number.isInteger(hour) && !Number.isInteger(minute)) {
+        throw new Error("Enter a valid time")
+      }
+      if (!Number.isInteger(hour)) {
+        return { hour: 0, minute }
+      }
+      if (!Number.isInteger(minute)) {
+        return { hour, minute: 0 }
+      }
+      return { hour, minute }
+    }
+
 
     {/* temp form submission */}
     function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
       event.preventDefault();
-      const formData = new FormData(event.currentTarget);
-      const name = formData.get("name") as string;
-      const message = formData.get("message") as string;
-      const startTime = formData.get("startTime") as string;
-      const endTime = formData.get("endTime") as string;
-      const day = formData.get("day") as string;
-      const freetime = formData.get("freetime") as string;
-      const priority = formData.get("priority") as string;
+      const data = new FormData(event.currentTarget);
+      const name = data.get("name") as string; {/* should be a string */}
+      const description = data.get("message") as string; {/* should be a string */}
+      const priority = Number(data.get("priority"))
 
-      alert(`Form submitted with values:\nName: ${name}\nDescription: ${message}\nStart Time: ${startTime}\nEnd Time: ${endTime}\nDay: ${day}\nFreetime: ${freetime}\nPriority: ${priority}`);
+
+      const dayValue = data.get("day")
+
+      if (typeof dayValue !== "string" || dayValue === "") {
+        throw new Error("Choose a day")
+      }
+
+      const weekday = Number(dayValue)
+
+      if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+        throw new Error("Choose a valid day")
+      }
+
+        if (typeof name !== "string" || !name.trim()) {
+          throw new Error("Name is required")
+        }
+        if (typeof description !== "string") {
+          throw new Error("Description is required")
+        }
+        if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+          throw new Error("Choose a valid day")
+        }
+        if (!Number.isInteger(priority)) {
+          throw new Error("Priority must be a whole number")
+        }
+
+      
+      const freetime = data.get("freetime") as string; {/* should be a boolean */}
+        const entry: TimeslotDto = {
+          name: name.trim(),
+          description,
+          weekday,
+          startTime: parseTime(data.get("startTime")),
+          endTime: parseTime(data.get("endTime")),
+          priority,
+        }
+
+      alert(`Form submitted with values:\nName: ${name}\nDescription: ${description}\nStart Time: ${entry.startTime}\nEnd Time: ${entry.endTime}\nDay: ${entry.weekday}\nFreetime: ${freetime}\nPriority: ${entry.priority}`);
     }
 
     return (
@@ -59,10 +112,19 @@ function addEntry(schedules: ScheduleDto[], scheduleIndex: number, dayIndex: num
         End Time: <input type="time" name="endTime" />
       </label>
       <label>
-        Day: <input type="text" name="day" />
+        Day:   <select name="day" required defaultValue="">
+              <option value="" disabled>
+              Choose a day
+              </option>
+              {dayNames.map((day, index) => (
+              <option key={day} value={index}>
+              {day}
+              </option>
+             ))}
+          </select>
       </label>
         <label>
-        Freetime: <input type="boolean" name="freetime" />
+        Freetime: <input type="checkbox" name="freetime" />
       </label>
         <label>
         Priority: <input type="number" name="priority" />
