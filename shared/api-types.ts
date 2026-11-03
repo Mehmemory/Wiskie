@@ -10,6 +10,7 @@ export type TimeslotDto = {
   endTime: DayDto | null
   description: string
   priority: number
+  freetime: boolean
 }
 
 export type ScheduleDto = {

@@ -1,12 +1,19 @@
-import { data, Link } from "react-router-dom";
+import { useState } from "react"
 import type { FormEvent } from "react"
+import { Link } from "react-router-dom"
+import axios from "axios"
 
-import type { DayDto, ScheduleDto, TimeslotDto } from "../../../shared/api-types"
-
+import type {
+  DayDto,
+  ScheduleDto,
+  SchedulesResponse,
+  TimeslotDto,
+} from "../../../shared/api-types"
 
 type SchedulesProps = {
-  schedules: ScheduleDto[],
+  schedules: ScheduleDto[]
   hope: string[]
+  onSchedulesChange: (schedules: ScheduleDto[]) => void
 }
 
 const dayNames = [
@@ -19,6 +26,7 @@ const dayNames = [
   "Saturday",
 ]
 
+// Formats a time as HH:MM, or labels it unspecified when no time is present.
 function formatTime(time: DayDto | null) {
   if (!time) return "Unspecified"
 
@@ -28,102 +36,168 @@ function formatTime(time: DayDto | null) {
   return `${hour}:${minute}`
 }
 
+// Parses a form time value and returns it only when its hour and minute are valid.
+function parseTime(value: FormDataEntryValue | null): DayDto | null {
+  if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) return null
 
+  const [hour, minute] = value.split(":").map(Number)
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null
 
-function addEntry(schedules: ScheduleDto[], scheduleIndex: number, dayIndex: number, slot: any) {
-    
-    function parseTime(value: FormDataEntryValue | null): DayDto | null {
-      if (typeof value !== "string" || value === "") return null
+  return { hour, minute }
+}
 
-      const [hour, minute] = value.split(":").map(Number)
-      if (!Number.isInteger(hour) && !Number.isInteger(minute)) {
-        throw new Error("Enter a valid time")
-      }
-      if (!Number.isInteger(hour)) {
-        return { hour: 0, minute }
-      }
-      if (!Number.isInteger(minute)) {
-        return { hour, minute: 0 }
-      }
-      return { hour, minute }
+type AddEntryFormProps = {
+  onSchedulesChange: (schedules: ScheduleDto[]) => void
+}
+
+// Renders the timeslot form and tracks its submission and error state.
+function AddEntryForm({ onSchedulesChange }: AddEntryFormProps) {
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Validates form values, posts a new timeslot, and updates the displayed schedule.
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+
+    const form = event.currentTarget
+    const data = new FormData(form)
+    const name = data.get("name")
+    const description = data.get("message")
+    const dayValue = data.get("day")
+    const priorityValue = data.get("priority")
+    const startTime = parseTime(data.get("startTime"))
+    const endTime = parseTime(data.get("endTime"))
+
+    if (typeof name !== "string" || !name.trim()) {
+      setError("Name is required.")
+      return
+    }
+    if (typeof description !== "string" || !description.trim()) {
+      setError("Description is required.")
+      return
+    }
+    if (typeof dayValue !== "string" || dayValue === "") {
+      setError("Choose a day.")
+      return
     }
 
-
-    {/* temp form submission */}
-    function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-      event.preventDefault();
-      const data = new FormData(event.currentTarget);
-      const name = data.get("name") as string; {/* should be a string */}
-      const description = data.get("message") as string; {/* should be a string */}
-      const priority = Number(data.get("priority"))
-
-
-      const dayValue = data.get("day")
-
-      if (typeof dayValue !== "string" || dayValue === "") {
-        throw new Error("Choose a day")
-      }
-
-      const weekday = Number(dayValue)
-
-      if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
-        throw new Error("Choose a valid day")
-      }
-
-        if (typeof name !== "string" || !name.trim()) {
-          throw new Error("Name is required")
-        }
-        if (typeof description !== "string") {
-          throw new Error("Description is required")
-        }
-        if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
-          throw new Error("Choose a valid day")
-        }
-        if (!Number.isInteger(priority)) {
-          throw new Error("Priority must be a whole number")
-        }
-
-      
-      const freetime = data.get("freetime") as string; {/* should be a boolean */}
-        const entry: TimeslotDto = {
-          name: name.trim(),
-          description,
-          weekday,
-          startTime: parseTime(data.get("startTime")),
-          endTime: parseTime(data.get("endTime")),
-          priority,
-        }
-
-      alert(`Form submitted with values:\nName: ${name}\nDescription: ${description}\nStart Time: ${entry.startTime}\nEnd Time: ${entry.endTime}\nDay: ${entry.weekday}\nFreetime: ${freetime}\nPriority: ${entry.priority}`);
+    const weekday = Number(dayValue)
+    if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+      setError("Choose a valid day.")
+      return
+    }
+    if (!startTime || !endTime) {
+      setError("Enter a valid start and end time.")
+      return
+    }
+    if (
+      endTime.hour * 60 + endTime.minute <=
+      startTime.hour * 60 + startTime.minute
+    ) {
+      setError("End time must be after start time.")
+      return
+    }
+    if (typeof priorityValue !== "string" || priorityValue.trim() === "") {
+      setError("Priority is required.")
+      return
     }
 
-    return (
-     <form onSubmit={handleSubmit}>
-      <label> Name: <input type="text" name="name" /> </label>
-      <label> Description: <textarea name="message" /> </label>
-      <label> Start Time: <input type="time" name="startTime" /> </label>
-      <label> End Time: <input type="time" name="endTime" /> </label>
-      <label> Day:   <select name="day" required defaultValue="">
-              <option value="" disabled> Choose a day </option>
-              {dayNames.map((day, index) => (
-              <option key={day} value={index}> {day} </option>
-             ))} </select> </label>
-      <label> Freetime: <input type="checkbox" name="freetime" /> </label>
-      <label> Priority: <input type="number" name="priority" /> </label>
-      <button type="submit">Submit</button>
-    </form>
-    )
+    const priority = Number(priorityValue)
+    if (!Number.isInteger(priority)) {
+      setError("Priority must be a whole number.")
+      return
+    }
 
+    // Build the typed API payload, including the checkbox's boolean value.
+    const entry: TimeslotDto = {
+      name: name.trim(),
+      description,
+      weekday,
+      startTime,
+      endTime,
+      priority,
+      freetime: data.has("freetime"),
+    }
 
+    setIsSubmitting(true)
+    try {
+      // Save the entry and replace local schedule state with the server response.
+      const response = await axios.post<SchedulesResponse>(
+        "http://localhost:8080/api/schedules",
+        entry,
+      )
+      onSchedulesChange(response.data.schedules)
+      form.reset()
+    } catch (submitError) {
+      // Show a useful message for both server responses and unexpected errors.
+      if (axios.isAxiosError<{ error?: string }>(submitError)) {
+        setError(
+          submitError.response?.data?.error ??
+            submitError.message ??
+            "Could not save schedule entry.",
+        )
+      } else {
+        setError(
+          submitError instanceof Error
+            ? submitError.message
+            : "Could not save schedule entry.",
+        )
+      }
+    } finally {
+      // Re-enable submission whether the request succeeded or failed.
+      setIsSubmitting(false)
+    }
   }
 
-function Schedules({ schedules }: SchedulesProps) {
+  return (
+    <form onSubmit={handleSubmit}>
+      <label>
+        Name: <input type="text" name="name" required />
+      </label>
+      <label>
+        Description: <textarea name="message" required />
+      </label>
+      <label>
+        Start Time: <input type="time" name="startTime" required />
+      </label>
+      <label>
+        End Time: <input type="time" name="endTime" required />
+      </label>
+      <label>
+        Day:
+        <select name="day" required defaultValue="">
+          <option value="" disabled>
+            Choose a day
+          </option>
+          {dayNames.map((day, index) => (
+            <option key={day} value={index}>
+              {day}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Freetime: <input type="checkbox" name="freetime" />
+      </label>
+      <label>
+        Priority: <input type="number" name="priority" step="1" required />
+      </label>
+      {error && <p role="alert">{error}</p>}
+      <button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? "Saving..." : "Submit"}
+      </button>
+    </form>
+  )
+}
+
+// Displays scheduled timeslots and provides the form for adding a new one.
+function Schedules({ schedules, onSchedulesChange }: SchedulesProps) {
   return (
     <main>
       <h1>Schedules</h1>
       <p>This is the schedules page.</p>
 
-      {/* Schedule Display */}
       {schedules.map((schedule, scheduleIndex) => (
         <section key={scheduleIndex}>
           <h2>Schedule</h2>
@@ -140,7 +214,9 @@ function Schedules({ schedules }: SchedulesProps) {
                     <li key={slotIndex}>
                       {formatTime(slot.startTime)}–{formatTime(slot.endTime)}
                       {" — "}
-                      {slot.name}: {slot.description}
+                      {slot.name}: {slot.description} (
+                      {slot.freetime ? "Freetime" : "Scheduled"}; priority{" "}
+                      {slot.priority})
                     </li>
                   ))}
                 </ul>
@@ -150,22 +226,17 @@ function Schedules({ schedules }: SchedulesProps) {
         </section>
       ))}
 
-      {/* Add Entry Form */}
-      {schedules.map((schedule, scheduleIndex) => (
-        <section key={scheduleIndex}>
-          <h2>Add Entry (doesn't work yet)</h2>
+      <section>
+        <h2>Add Entry</h2>
+        <AddEntryForm onSchedulesChange={onSchedulesChange} />
+      </section>
 
-              {addEntry(schedules, scheduleIndex, 0, null)}
-        </section>
-      ))}
-
-
-      {/* page links */}
       <Link to="/">Go to Home</Link>
       <Link to="/base">Go to Base</Link>
       <Link to="/schedules">Go to Schedules</Link>
       <Link to="/editor">Go to Editor</Link>
     </main>
-)}
+  )
+}
 
 export default Schedules

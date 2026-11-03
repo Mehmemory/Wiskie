@@ -11,11 +11,14 @@ import axios from 'axios'
 import type { ApiResponse, ScheduleDto, SchedulesResponse } from "../../shared/api-types"
 
 
+// Loads shared app data and renders the application's route configuration.
 function App() {
 
   const [schedules, setSchedules] = useState<ScheduleDto[]>([])
 
+  // Loads the initial schedule once when the app mounts.
   useEffect(() => {
+    // Requests the current schedule and stores it for the routes to display.
     async function loadSchedules() {
       try {
         const response = await axios.get<SchedulesResponse>(
@@ -33,7 +36,7 @@ function App() {
 
   const [hope, setHope] = useState<string[]>([])
 
-
+  // Fetches the API greeting and sample values for the home page.
   const fetchApi = async () => {
     try {
       const response = await axios.get<ApiResponse>('http://localhost:8080/api');
@@ -45,6 +48,7 @@ function App() {
     }
   };
 
+  // Loads the greeting data once when the app mounts.
   useEffect(() => {
     fetchApi();
   }, []);
@@ -59,7 +63,16 @@ function App() {
       <Routes>
         <Route path="/" element={<Home hope={hope} />} />
         <Route path="/base" element={<Base />} />
-        <Route path="/schedules" element={<Schedules hope={hope} schedules={schedules} />} />
+        <Route
+          path="/schedules"
+          element={
+            <Schedules
+              hope={hope}
+              schedules={schedules}
+              onSchedulesChange={setSchedules}
+            />
+          }
+        />
         <Route path="/editor" element={<Editor />} />
       </Routes>
     </BrowserRouter>
