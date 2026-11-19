@@ -2,17 +2,16 @@ import { useState } from "react"
 import type { FormEvent } from "react"
 import { Link } from "react-router-dom"
 import axios from "axios"
+import { createTimeslot } from "../api"
 
 import type {
+  CreateTimeslotDto,
   DayDto,
   ScheduleDto,
-  SchedulesResponse,
-  TimeslotDto,
 } from "../../../shared/api-types"
 
 type SchedulesProps = {
   schedules: ScheduleDto[]
-  hope: string[]
   onSchedulesChange: (schedules: ScheduleDto[]) => void
 }
 
@@ -110,7 +109,7 @@ function AddEntryForm({ onSchedulesChange }: AddEntryFormProps) {
     }
 
     // Build the typed API payload, including the checkbox's boolean value.
-    const entry: TimeslotDto = {
+    const entry: CreateTimeslotDto = {
       name: name.trim(),
       description,
       weekday,
@@ -123,11 +122,8 @@ function AddEntryForm({ onSchedulesChange }: AddEntryFormProps) {
     setIsSubmitting(true)
     try {
       // Save the entry and replace local schedule state with the server response.
-      const response = await axios.post<SchedulesResponse>(
-        "http://localhost:8080/api/schedules",
-        entry,
-      )
-      onSchedulesChange(response.data.schedules)
+      const response = await createTimeslot(entry)
+      onSchedulesChange(response.schedules)
       form.reset()
     } catch (submitError) {
       // Show a useful message for both server responses and unexpected errors.

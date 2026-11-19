@@ -13,6 +13,11 @@ export type TimeslotDto = {
   freetime: boolean
 }
 
+export type CreateTimeslotDto = Omit<TimeslotDto, "startTime" | "endTime"> & {
+  startTime: DayDto
+  endTime: DayDto
+}
+
 export type ScheduleDto = {
   timeslots: TimeslotDto[][]
 }

@@ -3,7 +3,11 @@ import express from "express";
 import { Schedule } from "./src/schedule"
 import { Timeslot } from "./src/timeslot"
 import { Day } from "./src/day"
-import type { DayDto, SchedulesResponse, TimeslotDto } from "../shared/api-types"
+import type {
+  CreateTimeslotDto,
+  DayDto,
+  SchedulesResponse,
+} from "../shared/api-types"
 
 const app = express();
 const corsOptions = {
@@ -33,11 +37,6 @@ app.post("/api/incriment", (req, res) => {
 
 const schedule = new Schedule()
 
-type CreateTimeslotRequest = Omit<TimeslotDto, "startTime" | "endTime"> & {
-  startTime: DayDto
-  endTime: DayDto
-}
-
 // Checks whether an unknown value is a non-null JSON object.
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -60,7 +59,7 @@ function isDayDto(value: unknown): value is DayDto {
 }
 
 // Validates the fields required to create a schedule timeslot.
-function isCreateTimeslotRequest(value: unknown): value is CreateTimeslotRequest {
+function isCreateTimeslotRequest(value: unknown): value is CreateTimeslotDto {
   if (!isRecord(value)) return false
 
   return (

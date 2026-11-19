@@ -1,26 +1,19 @@
 import { Link } from "react-router-dom";
-import axios from "axios";
-
-
-
-  
-
-
+import type { FormEvent } from "react"
+import { incrementNumber } from "../api"
 
 type HomeProps = {
   hope: string[]
 }
 
-async function handleClick(event: React.FormEvent<HTMLFormElement>) {
+async function handleClick(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
   const data = new FormData(event.currentTarget);
   const number = Number(data.get("number"));
 
   console.log("Sending number to server:", number);
-   const response = await axios.post<{ number: number}>(
-  "http://localhost:8080/api/incriment", { number })
-  
-  console.log("Received response from server:", response.data.number);
+  const result = await incrementNumber(number)
+  console.log("Received response from server:", result);
 }
 
 function Home({ hope }: HomeProps) {
