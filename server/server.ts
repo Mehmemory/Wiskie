@@ -1,13 +1,17 @@
 import cors from "cors";
 import express from "express";
+import { randomUUID } from "node:crypto"
 import { Schedule } from "./src/schedule"
+import { ProfileScheduleStore } from "./src/profile-schedule-store"
 import { Timeslot } from "./src/timeslot"
 import { Day } from "./src/day"
 import type {
   CreateTimeslotDto,
   DayDto,
+  ProfileId,
   SchedulesResponse,
 } from "../shared/api-types"
+import { DEFAULT_PROFILE_ID } from "../shared/api-types"
 
 const app = express();
 const corsOptions = {
@@ -35,7 +39,7 @@ app.post("/api/incriment", (req, res) => {
 
 });
 
-const schedule = new Schedule()
+const scheduleStore = new ProfileScheduleStore()
 
 // Checks whether an unknown value is a non-null JSON object.
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -79,13 +83,15 @@ function isCreateTimeslotRequest(value: unknown): value is CreateTimeslotDto {
   )
 }
 
-// Converts the in-memory schedule into the API response shape.
-function getSchedulesResponse(): SchedulesResponse {
+// Converts one profile's in-memory schedule into the API response shape.
+function getSchedulesResponse(profileId: ProfileId): SchedulesResponse {
+  const schedule = scheduleStore.get(profileId)
   return {
     schedules: [
       {
         timeslots: schedule.timeslots.map((day) =>
           day.map((slot) => ({
+            id: slot.getId(),
             name: slot.getName(),
             weekday: slot.getWeekday(),
             startTime: {
@@ -106,8 +112,33 @@ function getSchedulesResponse(): SchedulesResponse {
   }
 }
 
-// Validates submitted timeslot data, adds it to the scheduler, and returns the updated schedule.
-app.post("/api/schedules", (req, res) => {
+function isProfileId(value: string): boolean {
+  return /^[a-zA-Z0-9_-]{1,64}$/.test(value)
+}
+
+function createTimeslot(
+  dto: CreateTimeslotDto,
+  id: string = randomUUID(),
+): Timeslot {
+  return new Timeslot(
+    new Day(dto.startTime.hour, dto.startTime.minute),
+    new Day(dto.endTime.hour, dto.endTime.minute),
+    dto.weekday,
+    dto.freetime,
+    dto.name.trim(),
+    dto.priority,
+    dto.description.trim(),
+    id,
+  )
+}
+
+// Validates and creates a schedule entry within its profile scope.
+app.post("/api/profiles/:profileId/timeslots", (req, res) => {
+  const { profileId } = req.params
+  if (!isProfileId(profileId)) {
+    return res.status(400).json({ error: "Invalid profile ID" })
+  }
+
   // Treat incoming JSON as untrusted until the request validator checks it.
   const body: unknown = req.body
 
@@ -124,25 +155,53 @@ app.post("/api/schedules", (req, res) => {
     return res.status(400).json({ error: "End time must be after start time" })
   }
 
-  // Convert the validated request into domain objects and store the timeslot.
-  schedule.addTimeslot(
-    new Timeslot(
-      new Day(body.startTime.hour, body.startTime.minute),
-      new Day(body.endTime.hour, body.endTime.minute),
-      body.weekday,
-      body.freetime,
-      body.name.trim(),
-      body.priority,
-      body.description,
-    ),
-  )
+  scheduleStore.get(profileId).addTimeslot(createTimeslot(body))
 
   // Return the full updated schedule so the client can refresh its display.
-  return res.status(201).json(getSchedulesResponse())
+  return res.status(201).json(getSchedulesResponse(profileId))
 })
 
-// Add a sample timeslot
-schedule.addTimeslot(
+// Updates a timeslot only within the requested profile's schedule.
+app.put("/api/profiles/:profileId/timeslots/:timeslotId", (req, res) => {
+  const { profileId, timeslotId } = req.params
+  if (!isProfileId(profileId)) {
+    return res.status(400).json({ error: "Invalid profile ID" })
+  }
+
+  const body: unknown = req.body
+  if (!isCreateTimeslotRequest(body)) {
+    return res.status(400).json({ error: "Invalid timeslot values" })
+  }
+  if (
+    body.endTime.hour * 60 + body.endTime.minute <=
+    body.startTime.hour * 60 + body.startTime.minute
+  ) {
+    return res.status(400).json({ error: "End time must be after start time" })
+  }
+
+  const schedule = scheduleStore.find(profileId)
+  if (
+    !schedule ||
+    !schedule.updateTimeslot(timeslotId, createTimeslot(body, timeslotId))
+  ) {
+    return res.status(404).json({ error: "Timeslot not found" })
+  }
+
+  return res.json(getSchedulesResponse(profileId))
+})
+
+// Returns the schedule for the requested profile.
+app.get("/api/profiles/:profileId/schedules", (req, res) => {
+  const { profileId } = req.params
+  if (!isProfileId(profileId)) {
+    return res.status(400).json({ error: "Invalid profile ID" })
+  }
+
+  return res.json(getSchedulesResponse(profileId))
+})
+
+// Seed the current default profile; additional profile schedules are created on demand.
+scheduleStore.get(DEFAULT_PROFILE_ID).addTimeslot(
   new Timeslot(
     new Day(9, 0),          // start time
     new Day(10, 30),        // end time
@@ -151,13 +210,9 @@ schedule.addTimeslot(
     "Computer Science",     // name
     1,                      // priority
     "Test",              // description
+    randomUUID(),
   ),
 )
-
-// Returns all current timeslots in the scheduler.
-app.get("/api/schedules", (_req, res) => {
-  res.json(getSchedulesResponse())
-})
 
 // Starts the HTTP server and reports when it is ready.
 app.listen(8080, () => {

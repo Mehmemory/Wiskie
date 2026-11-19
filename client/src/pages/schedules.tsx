@@ -2,17 +2,26 @@ import { useState } from "react"
 import type { FormEvent } from "react"
 import { Link } from "react-router-dom"
 import axios from "axios"
-import { createTimeslot } from "../api"
 
 import type {
   CreateTimeslotDto,
   DayDto,
   ScheduleDto,
+  TimeslotDto,
 } from "../../../shared/api-types"
+import { DEFAULT_PROFILE_ID } from "../../../shared/api-types"
+import { createTimeslot, updateTimeslot } from "../api"
 
 type SchedulesProps = {
   schedules: ScheduleDto[]
   onSchedulesChange: (schedules: ScheduleDto[]) => void
+}
+
+type TimeslotFormProps = {
+  initialValues?: TimeslotDto
+  submitLabel: string
+  onSave: (timeslot: CreateTimeslotDto) => Promise<void>
+  onCancel?: () => void
 }
 
 const dayNames = [
@@ -25,212 +34,308 @@ const dayNames = [
   "Saturday",
 ]
 
-// Formats a time as HH:MM, or labels it unspecified when no time is present.
-function formatTime(time: DayDto | null) {
+function formatTime(time: DayDto | null): string {
   if (!time) return "Unspecified"
 
   const hour = String(time.hour).padStart(2, "0")
   const minute = String(time.minute).padStart(2, "0")
-
   return `${hour}:${minute}`
 }
 
-// Parses a form time value and returns it only when its hour and minute are valid.
+function timeInputValue(time: DayDto | null | undefined): string {
+  if (!time) return ""
+  return `${String(time.hour).padStart(2, "0")}:${String(time.minute).padStart(2, "0")}`
+}
+
 function parseTime(value: FormDataEntryValue | null): DayDto | null {
   if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) return null
 
   const [hour, minute] = value.split(":").map(Number)
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null
-
   return { hour, minute }
 }
 
-type AddEntryFormProps = {
-  onSchedulesChange: (schedules: ScheduleDto[]) => void
+function getErrorMessage(error: unknown): string {
+  if (axios.isAxiosError<{ error?: string }>(error)) {
+    return (
+      error.response?.data?.error ??
+      error.message ??
+      "Could not save this timeslot."
+    )
+  }
+
+  return error instanceof Error ? error.message : "Could not save this timeslot."
 }
 
-// Renders the timeslot form and tracks its submission and error state.
-function AddEntryForm({ onSchedulesChange }: AddEntryFormProps) {
+function TimeslotForm({
+  initialValues,
+  submitLabel,
+  onSave,
+  onCancel,
+}: TimeslotFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Validates form values, posts a new timeslot, and updates the displayed schedule.
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
 
-    const form = event.currentTarget
-    const data = new FormData(form)
+    const data = new FormData(event.currentTarget)
     const name = data.get("name")
-    const description = data.get("message")
-    const dayValue = data.get("day")
+    const description = data.get("description")
+    const weekdayValue = data.get("weekday")
     const priorityValue = data.get("priority")
     const startTime = parseTime(data.get("startTime"))
     const endTime = parseTime(data.get("endTime"))
 
-    if (typeof name !== "string" || !name.trim()) {
-      setError("Name is required.")
-      return
-    }
-    if (typeof description !== "string" || !description.trim()) {
-      setError("Description is required.")
-      return
-    }
-    if (typeof dayValue !== "string" || dayValue === "") {
-      setError("Choose a day.")
-      return
-    }
-
-    const weekday = Number(dayValue)
-    if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
-      setError("Choose a valid day.")
-      return
-    }
-    if (!startTime || !endTime) {
-      setError("Enter a valid start and end time.")
-      return
-    }
     if (
-      endTime.hour * 60 + endTime.minute <=
-      startTime.hour * 60 + startTime.minute
+      typeof name !== "string" ||
+      typeof description !== "string" ||
+      typeof weekdayValue !== "string" ||
+      typeof priorityValue !== "string" ||
+      !startTime ||
+      !endTime
     ) {
-      setError("End time must be after start time.")
-      return
-    }
-    if (typeof priorityValue !== "string" || priorityValue.trim() === "") {
-      setError("Priority is required.")
+      setError("Complete all fields with valid values.")
       return
     }
 
-    const priority = Number(priorityValue)
-    if (!Number.isInteger(priority)) {
-      setError("Priority must be a whole number.")
-      return
-    }
-
-    // Build the typed API payload, including the checkbox's boolean value.
-    const entry: CreateTimeslotDto = {
-      name: name.trim(),
+    const timeslot: CreateTimeslotDto = {
+      name,
       description,
-      weekday,
+      weekday: Number(weekdayValue),
       startTime,
       endTime,
-      priority,
+      priority: Number(priorityValue),
       freetime: data.has("freetime"),
     }
 
     setIsSubmitting(true)
     try {
-      // Save the entry and replace local schedule state with the server response.
-      const response = await createTimeslot(entry)
-      onSchedulesChange(response.schedules)
-      form.reset()
-    } catch (submitError) {
-      // Show a useful message for both server responses and unexpected errors.
-      if (axios.isAxiosError<{ error?: string }>(submitError)) {
-        setError(
-          submitError.response?.data?.error ??
-            submitError.message ??
-            "Could not save schedule entry.",
-        )
-      } else {
-        setError(
-          submitError instanceof Error
-            ? submitError.message
-            : "Could not save schedule entry.",
-        )
-      }
+      await onSave(timeslot)
+    } catch (saveError) {
+      setError(getErrorMessage(saveError))
     } finally {
-      // Re-enable submission whether the request succeeded or failed.
       setIsSubmitting(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form className="timeslot-form" onSubmit={handleSubmit}>
       <label>
-        Name: <input type="text" name="name" required />
+        Name
+        <input
+          type="text"
+          name="name"
+          required
+          defaultValue={initialValues?.name ?? ""}
+        />
       </label>
       <label>
-        Description: <textarea name="message" required />
+        Description
+        <textarea
+          name="description"
+          required
+          rows={2}
+          defaultValue={initialValues?.description ?? ""}
+        />
       </label>
-      <label>
-        Start Time: <input type="time" name="startTime" required />
-      </label>
-      <label>
-        End Time: <input type="time" name="endTime" required />
-      </label>
-      <label>
-        Day:
-        <select name="day" required defaultValue="">
-          <option value="" disabled>
-            Choose a day
-          </option>
-          {dayNames.map((day, index) => (
-            <option key={day} value={index}>
-              {day}
+      <div className="timeslot-form__row">
+        <label>
+          Day
+          <select
+            name="weekday"
+            required
+            defaultValue={initialValues?.weekday ?? ""}
+          >
+            <option value="" disabled>
+              Choose a day
             </option>
-          ))}
-        </select>
+            {dayNames.map((day, index) => (
+              <option key={day} value={index}>
+                {day}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Priority
+          <input
+            type="number"
+            name="priority"
+            step="1"
+            required
+            defaultValue={initialValues?.priority ?? 1}
+          />
+        </label>
+      </div>
+      <div className="timeslot-form__row">
+        <label>
+          Start
+          <input
+            type="time"
+            name="startTime"
+            required
+            defaultValue={timeInputValue(initialValues?.startTime)}
+          />
+        </label>
+        <label>
+          End
+          <input
+            type="time"
+            name="endTime"
+            required
+            defaultValue={timeInputValue(initialValues?.endTime)}
+          />
+        </label>
+      </div>
+      <label className="timeslot-form__checkbox">
+        <input
+          type="checkbox"
+          name="freetime"
+          defaultChecked={initialValues?.freetime ?? false}
+        />
+        Free time
       </label>
-      <label>
-        Freetime: <input type="checkbox" name="freetime" />
-      </label>
-      <label>
-        Priority: <input type="number" name="priority" step="1" required />
-      </label>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Saving..." : "Submit"}
-      </button>
+      {error && <p className="timeslot-form__error" role="alert">{error}</p>}
+      <div className="timeslot-form__actions">
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Saving..." : submitLabel}
+        </button>
+        {onCancel && (
+          <button type="button" className="button-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   )
 }
 
-// Displays scheduled timeslots and provides the form for adding a new one.
 function Schedules({ schedules, onSchedulesChange }: SchedulesProps) {
+  const [isAdding, setIsAdding] = useState(false)
+  const [editingTimeslotId, setEditingTimeslotId] = useState<string | null>(
+    null,
+  )
+  const timeslotsByDay = schedules[0]?.timeslots ?? Array.from({ length: 7 }, () => [])
+
+  async function saveNewTimeslot(timeslot: CreateTimeslotDto) {
+    const response = await createTimeslot(DEFAULT_PROFILE_ID, timeslot)
+    onSchedulesChange(response.schedules)
+    setIsAdding(false)
+  }
+
+  async function saveTimeslot(id: string, timeslot: CreateTimeslotDto) {
+    const response = await updateTimeslot(DEFAULT_PROFILE_ID, id, timeslot)
+    onSchedulesChange(response.schedules)
+    setEditingTimeslotId(null)
+  }
+
   return (
-    <main>
-      <h1>Schedules</h1>
-      <p>This is the schedules page.</p>
+    <main className="schedule-editor">
+      <header className="schedule-editor__header">
+        <div>
+          <p className="schedule-editor__eyebrow">YOUR WEEK</p>
+          <h1>Schedule editor</h1>
+          <p>Keep your week up to date. Changes are saved to your schedule.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setEditingTimeslotId(null)
+            setIsAdding((isOpen) => !isOpen)
+          }}
+          aria-expanded={isAdding}
+        >
+          {isAdding ? "Close form" : "Add timeslot"}
+        </button>
+      </header>
 
-      {schedules.map((schedule, scheduleIndex) => (
-        <section key={scheduleIndex}>
-          <h2>Schedule</h2>
+      {isAdding && (
+        <section className="timeslot-editor-card">
+          <h2>New timeslot</h2>
+          <TimeslotForm
+            submitLabel="Add to schedule"
+            onSave={saveNewTimeslot}
+            onCancel={() => setIsAdding(false)}
+          />
+        </section>
+      )}
 
-          {schedule.timeslots.map((daySlots, dayIndex) => (
-            <section key={dayIndex}>
-              <h3>{dayNames[dayIndex]}</h3>
+      <div className="schedule-editor__days">
+        {dayNames.map((day, dayIndex) => {
+          const dayTimeslots = timeslotsByDay[dayIndex] ?? []
 
-              {daySlots.length === 0 ? (
-                <p>Nothing scheduled</p>
+          return (
+            <section className="schedule-day" key={day}>
+              <header className="schedule-day__header">
+                <h2>{day}</h2>
+                <span>
+                  {dayTimeslots.length}{" "}
+                  {dayTimeslots.length === 1 ? "item" : "items"}
+                </span>
+              </header>
+
+              {dayTimeslots.length === 0 ? (
+                <p className="schedule-day__empty">Nothing scheduled</p>
               ) : (
-                <ul>
-                  {daySlots.map((slot, slotIndex) => (
-                    <li key={slotIndex}>
-                      {formatTime(slot.startTime)}–{formatTime(slot.endTime)}
-                      {" — "}
-                      {slot.name}: {slot.description} (
-                      {slot.freetime ? "Freetime" : "Scheduled"}; priority{" "}
-                      {slot.priority})
+                <ul className="schedule-day__list">
+                  {dayTimeslots.map((timeslot) => (
+                    <li className="timeslot-card" key={timeslot.id}>
+                      {editingTimeslotId === timeslot.id ? (
+                        <>
+                          <h3>Edit timeslot</h3>
+                          <TimeslotForm
+                            key={timeslot.id}
+                            initialValues={timeslot}
+                            submitLabel="Save changes"
+                            onSave={(values) =>
+                              saveTimeslot(timeslot.id, values)
+                            }
+                            onCancel={() => setEditingTimeslotId(null)}
+                          />
+                        </>
+                      ) : (
+                        <article>
+                          <div className="timeslot-card__summary">
+                            <p className="timeslot-card__time">
+                              {formatTime(timeslot.startTime)} –{" "}
+                              {formatTime(timeslot.endTime)}
+                            </p>
+                            <button
+                              type="button"
+                              className="button-secondary"
+                              onClick={() => {
+                                setIsAdding(false)
+                                setEditingTimeslotId(timeslot.id)
+                              }}
+                              aria-label={`Edit ${timeslot.name}`}
+                            >
+                              Edit
+                            </button>
+                          </div>
+                          <h3>{timeslot.name}</h3>
+                          <p>{timeslot.description}</p>
+                          <p className="timeslot-card__metadata">
+                            {timeslot.freetime ? "Free time" : "Scheduled"} ·
+                            Priority {timeslot.priority}
+                          </p>
+                        </article>
+                      )}
                     </li>
                   ))}
                 </ul>
               )}
             </section>
-          ))}
-        </section>
-      ))}
+          )
+        })}
+      </div>
 
-      <section>
-        <h2>Add Entry</h2>
-        <AddEntryForm onSchedulesChange={onSchedulesChange} />
-      </section>
-
-      <Link to="/">Go to Home</Link>
-      <Link to="/base">Go to Base</Link>
-      <Link to="/schedules">Go to Schedules</Link>
-      <Link to="/editor">Go to Editor</Link>
+      <nav className="schedule-editor__navigation" aria-label="Main navigation">
+        <Link to="/">Home</Link>
+        <Link to="/base">About</Link>
+        <Link to="/editor">Editor</Link>
+      </nav>
     </main>
   )
 }

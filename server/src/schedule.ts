@@ -14,13 +14,31 @@ export class Schedule {
             throw new Error("Weekday must be between 0 and 6");
         }
 
+        this.warnAboutOverlaps(timeslot);
+        this.timeslots[timeslot.getWeekday()].push(timeslot);
+    }
 
-        // Check for overlapping timeslots on the same day
-        // if so prompt user with options
-            //option 1: replace existing timeslot with new one
-            //option 2: keep existing timeslot and discard new one
-            //option 3: keep both timeslots with overlapping times
-            //option 4: allow user to edit new or old timeslot to resolve overlap
+    updateTimeslot(id: string, replacement: Timeslot): boolean {
+        if (replacement.getWeekday() < 0 || replacement.getWeekday() > 6) {
+            throw new Error("Weekday must be between 0 and 6");
+        }
+
+        const existingDay = this.timeslots.findIndex((day) =>
+            day.some((timeslot) => timeslot.getId() === id),
+        );
+        if (existingDay === -1) return false;
+
+        const existingIndex = this.timeslots[existingDay].findIndex(
+            (timeslot) => timeslot.getId() === id,
+        );
+        const [existing] = this.timeslots[existingDay].splice(existingIndex, 1);
+        if (!existing) return false;
+        this.warnAboutOverlaps(replacement);
+        this.timeslots[replacement.getWeekday()].push(replacement);
+        return true;
+    }
+
+    private warnAboutOverlaps(timeslot: Timeslot) {
         const dayTimeslots = this.timeslots[timeslot.getWeekday()];
 
         for (const existing of dayTimeslots) {
@@ -29,14 +47,8 @@ export class Schedule {
                 existing.getStartTime().timeinminutes < timeslot.getEndTime().timeinminutes;
 
             if (overlaps) {
-                // Handle overlap according to your application's requirements
                 console.warn(`Timeslot overlaps with existing timeslot: ${existing.getName()}`);
             }
         }
-
-        dayTimeslots.push(timeslot);
     }
-
-
-
 }

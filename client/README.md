@@ -1,6 +1,6 @@
 # Wiskie
 
-Wiskie is a React client and an Express API for viewing and adding schedule
+Wiskie is a React client and an Express API for viewing and editing schedule
 timeslots. The `client`, `server`, and `shared` directories are separate parts
 of one application; the client and server each have their own package setup.
 
@@ -26,17 +26,19 @@ flowchart LR
 
   clientApi -->|GET /api| api
   clientApi -->|POST /api/incriment| api
-  clientApi -->|GET /api/schedules on mount| api
-  clientApi -->|POST /api/schedules| api
-  api -->|updated schedule response| app
+  clientApi -->|GET profile schedule| api
+  clientApi -->|POST new timeslot| api
+  clientApi -->|PUT existing timeslot| api
+  api -->|updated profile schedule| app
 
   subgraph server[server]
     api[Express API :8080]
     api --> validation[Request validation]
-    validation --> schedule[Schedule]
+    validation --> store[ProfileScheduleStore]
+    store --> schedule[Schedule per profile]
     schedule --> slots[Timeslot instances]
     slots --> day[Day values]
-    schedule --> memory[(In-memory schedule)]
+    store --> memory[(In-memory profile schedules)]
   end
 
   types[shared/api-types.ts]
@@ -50,22 +52,28 @@ flowchart LR
 - `main.tsx` mounts the React app. `App.tsx` defines the routes and fetches the
   initial schedule and greeting data when it mounts.
 - The home page displays the greeting and has a demo increment request.
-- The schedules page displays the schedule and posts new timeslots. After a
-  successful post, the server returns the updated schedule and the client
-  replaces its schedule state.
+- The schedules page displays timeslots by weekday and lets the user add or
+  edit a specific entry. After each save, the server returns the updated
+  profile schedule and the client replaces its schedule state.
 - `client/src/api.ts` owns the Axios instance and endpoint paths. Set
   `VITE_API_BASE_URL` to override its default API origin of
   `http://localhost:8080`.
-- The API validates new timeslot requests, converts them to `Day` and
-  `Timeslot` domain objects, and stores them in a `Schedule`.
+- The API validates create and update requests, converts them to `Day` and
+  `Timeslot` domain objects, and stores them in a profile-scoped `Schedule`.
+- Schedule endpoints are `GET /api/profiles/:profileId/schedules`,
+  `POST /api/profiles/:profileId/timeslots`, and
+  `PUT /api/profiles/:profileId/timeslots/:timeslotId`. The current client uses
+  the `default` profile. The profile-keyed store is an extension point, not
+  profile management or access control; authorization and durable storage are
+  not implemented.
 - `shared/api-types.ts` describes the JSON shapes used on both sides, including
   the stricter `CreateTimeslotDto` required by the create endpoint. These
   TypeScript types do not validate network data at runtime.
 
 ## Current gaps
 
-- Schedules exist only in server memory. Restarting the server resets them to
-  the sample timeslot.
+- Profile schedules exist only in server memory. Restarting the server resets
+  them, including the default profile's sample timeslot.
 - The server CORS configuration is restricted to the Vite development origin;
   deployments will need an explicit allowed-origin configuration.
 - `Base` and `Editor` are placeholder pages. The increment and greeting
@@ -74,8 +82,8 @@ flowchart LR
   product behavior for conflicts has not been chosen yet.
 
 These are the current implementation boundaries, not promises about the final
-design. The client API boundary is now centralized; decide the desired schedule
-persistence and overlap behavior before building out the editor.
+design. Next, decide the desired schedule persistence and overlap behavior
+before extending the editor further.
 
 ## Run locally
 

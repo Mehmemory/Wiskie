@@ -182,3 +182,245 @@
     border-right-color: var(--border);
   }
 }
+
+.schedule-editor {
+  width: 100%;
+  box-sizing: border-box;
+  padding: clamp(20px, 5vw, 56px);
+  text-align: left;
+}
+
+.schedule-editor__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.schedule-editor__header h1 {
+  margin: 4px 0 8px;
+  font-size: clamp(36px, 6vw, 56px);
+}
+
+.schedule-editor__header > div > p:last-child {
+  max-width: 560px;
+}
+
+.schedule-editor__eyebrow {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+}
+
+.schedule-editor button {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: white;
+  background: var(--accent);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.schedule-editor button:hover {
+  filter: brightness(0.94);
+}
+
+.schedule-editor button:focus-visible,
+.schedule-editor input:focus-visible,
+.schedule-editor textarea:focus-visible,
+.schedule-editor select:focus-visible {
+  outline: 3px solid var(--accent-border);
+  outline-offset: 2px;
+}
+
+.schedule-editor button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.schedule-editor .button-secondary {
+  border-color: var(--border);
+  color: var(--text-h);
+  background: transparent;
+}
+
+.schedule-editor__days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+
+.schedule-day,
+.timeslot-editor-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--social-bg);
+}
+
+.schedule-day__header,
+.timeslot-card__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.schedule-day__header {
+  margin-bottom: 14px;
+}
+
+.schedule-day__header h2,
+.timeslot-editor-card h2,
+.timeslot-card h3 {
+  margin: 0;
+}
+
+.schedule-day__header span,
+.timeslot-card__metadata {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.schedule-day__empty {
+  padding: 12px 0;
+  font-size: 14px;
+}
+
+.schedule-day__list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeslot-card {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 14px;
+  background: var(--bg);
+}
+
+.timeslot-card__time {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.timeslot-card h3 {
+  margin-top: 8px;
+  color: var(--text-h);
+  font-size: 17px;
+}
+
+.timeslot-card article > p:not(.timeslot-card__time):not(.timeslot-card__metadata) {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.timeslot-card__metadata {
+  margin-top: 8px;
+}
+
+.timeslot-editor-card {
+  margin-bottom: 20px;
+}
+
+.timeslot-editor-card h2 {
+  margin-bottom: 16px;
+}
+
+.timeslot-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.timeslot-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.timeslot-form input,
+.timeslot-form textarea,
+.timeslot-form select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: var(--text-h);
+  background: var(--bg);
+  font: inherit;
+  font-size: 15px;
+}
+
+.timeslot-form textarea {
+  resize: vertical;
+}
+
+.timeslot-form__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.timeslot-form .timeslot-form__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+}
+
+.timeslot-form__checkbox input {
+  width: auto;
+}
+
+.timeslot-form__error {
+  color: #b42318;
+  font-size: 14px;
+}
+
+.timeslot-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.timeslot-form__actions button {
+  font-size: 14px;
+}
+
+.schedule-editor__navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.schedule-editor__navigation a {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+@media (max-width: 560px) {
+  .schedule-editor__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .timeslot-form__row {
+    grid-template-columns: 1fr;
+  }
+}

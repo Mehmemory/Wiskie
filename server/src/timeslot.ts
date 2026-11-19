@@ -11,7 +11,8 @@ export class Timeslot {
         private freetime: boolean,
         private name: string,
         private priority: number,
-        private description: string
+        private description: string,
+        private readonly id: string,
     ) {
         if (endTime && startTime) {
             if (endTime.timeinminutes < startTime.timeinminutes) {
@@ -29,6 +30,9 @@ export class Timeslot {
     } // end of constructor
 
 
+    getId(): string {
+        return this.id;
+    }
 
     getStartTime(): Day {
         return this.startTime;

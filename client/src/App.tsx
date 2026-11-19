@@ -9,6 +9,7 @@ import Schedules from "./pages/schedules"
 import Editor from "./pages/editor"
 import { getApiResponse, getSchedules } from "./api"
 import type { ScheduleDto } from "../../shared/api-types"
+import { DEFAULT_PROFILE_ID } from "../../shared/api-types"
 
 
 // Loads shared app data and renders the application's route configuration.
@@ -21,7 +22,7 @@ function App() {
     // Requests the current schedule and stores it for the routes to display.
     async function loadSchedules() {
       try {
-        const response = await getSchedules()
+        const response = await getSchedules(DEFAULT_PROFILE_ID)
         setSchedules(response.schedules)
       } catch (error) {
         console.error("Could not load schedules:", error)
