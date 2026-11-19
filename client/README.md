@@ -45,11 +45,13 @@ flowchart LR
 
 - `main.tsx` mounts the React app. `App.tsx` redirects the root route to the
   schedule editor and loads the default profile's schedule.
-- The schedules page displays timeslots by weekday and lets the user add or
-  edit a specific entry. After each save, the server returns the updated
-  profile schedule and the client replaces its schedule state. Each weekday is
-  ordered by start time, end time, then stable ID, independent of insertion
-  order.
+- The schedules page can be viewed as an ordered list or a weekly calendar.
+  Calendar events are positioned by start time and their height represents
+  duration; overlapping events use side-by-side lanes. The calendar initially
+  scrolls to 06:00. Select an entry in either view to edit it. After each save,
+  the server returns the updated profile schedule and the client replaces its
+  schedule state. Each weekday is ordered by start time, end time, then stable
+  ID, independent of insertion order.
 - `client/src/api.ts` owns the Axios instance and endpoint paths. Set
   `VITE_API_BASE_URL` to override its default API origin of
   `http://localhost:8080`.
