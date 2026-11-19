@@ -14,10 +14,35 @@ import type {
 import { DEFAULT_PROFILE_ID } from "../shared/api-types"
 
 const app = express();
-// The development client and API use separate origins.
+// Vite can fall back to another port when 5173 is occupied; allow only local
+// development origins in that range while keeping deployed origins explicit.
 const corsOptions = {
-    origin: ["http://localhost:5173"]
-};
+  origin: (
+    origin: string | undefined,
+    callback: (error: Error | null, allowed?: boolean) => void,
+  ) => {
+    if (!origin) return callback(null, true)
+
+    let requestOrigin: URL
+    try {
+      requestOrigin = new URL(origin)
+    } catch {
+      return callback(new Error("Invalid request origin"))
+    }
+
+    const isLocalHost =
+      requestOrigin.hostname === "localhost" ||
+      requestOrigin.hostname === "127.0.0.1"
+    const port = Number(requestOrigin.port)
+    const isVitePort = port >= 5173 && port <= 5179
+
+    if (requestOrigin.protocol === "http:" && isLocalHost && isVitePort) {
+      return callback(null, true)
+    }
+
+    return callback(new Error("Origin not allowed by CORS"))
+  },
+}
 
 app.use(cors(corsOptions));
 app.use(express.json());
