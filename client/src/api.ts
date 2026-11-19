@@ -1,8 +1,8 @@
 import axios from "axios"
 
 import type {
-  CreateTimeslotDto,
   ProfileId,
+  SaveTimeslotDto,
   SchedulesResponse,
 } from "../../shared/api-types"
 import { DEFAULT_PROFILE_ID } from "../../shared/api-types"
@@ -30,7 +30,7 @@ export async function getSchedules(
 // Create a slot; the backend assigns its stable ID and validates its values.
 export async function createTimeslot(
   profileId: ProfileId,
-  timeslot: CreateTimeslotDto,
+  timeslot: SaveTimeslotDto,
 ): Promise<SchedulesResponse> {
   const response = await api.post<SchedulesResponse>(
     `${profilePath(profileId)}/timeslots`,
@@ -44,7 +44,7 @@ export async function createTimeslot(
 export async function updateTimeslot(
   profileId: ProfileId,
   timeslotId: string,
-  timeslot: CreateTimeslotDto,
+  timeslot: SaveTimeslotDto,
 ): Promise<SchedulesResponse> {
   const response = await api.put<SchedulesResponse>(
     `${profilePath(profileId)}/timeslots/${encodeURIComponent(timeslotId)}`,

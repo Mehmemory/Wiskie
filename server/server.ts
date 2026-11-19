@@ -6,9 +6,10 @@ import { ProfileScheduleStore } from "./src/profile-schedule-store"
 import { Timeslot } from "./src/timeslot"
 import { Day } from "./src/day"
 import type {
-  CreateTimeslotDto,
   DayDto,
   ProfileId,
+  SaveTimeslotDto,
+  ScheduleConflictResponse,
   SchedulesResponse,
 } from "../shared/api-types"
 import { DEFAULT_PROFILE_ID } from "../shared/api-types"
@@ -73,7 +74,7 @@ function isDayDto(value: unknown): value is DayDto {
 }
 
 // TypeScript types disappear at runtime, so validate every required field here.
-function isCreateTimeslotRequest(value: unknown): value is CreateTimeslotDto {
+function isSaveTimeslotRequest(value: unknown): value is SaveTimeslotDto {
   if (!isRecord(value)) return false
 
   return (
@@ -82,7 +83,6 @@ function isCreateTimeslotRequest(value: unknown): value is CreateTimeslotDto {
     value.name.trim().length <=
       DEFAULT_SCHEDULE_SETTINGS.maxTimeslotNameLength &&
     typeof value.description === "string" &&
-    value.description.trim().length > 0 &&
     Number.isInteger(value.weekday) &&
     typeof value.weekday === "number" &&
     value.weekday >= 0 &&
@@ -92,8 +92,39 @@ function isCreateTimeslotRequest(value: unknown): value is CreateTimeslotDto {
     typeof value.freetime === "boolean" &&
     typeof value.priority === "number" &&
     Number.isInteger(value.priority) &&
-    (DEFAULT_SCHEDULE_SETTINGS.allowNegativePriority || value.priority >= 0)
+    (DEFAULT_SCHEDULE_SETTINGS.allowNegativePriority || value.priority >= 0) &&
+    (!("confirmedOverlapIds" in value) ||
+      (Array.isArray(value.confirmedOverlapIds) &&
+        value.confirmedOverlapIds.every((id) => typeof id === "string")))
   )
+}
+
+function hasUnconfirmedOverlaps(
+  overlaps: Timeslot[],
+  confirmedIds: string[] | undefined,
+): boolean {
+  const confirmed = new Set(confirmedIds ?? [])
+  return overlaps.some((slot) => !confirmed.has(slot.getId()))
+}
+
+function getOverlapResponse(
+  overlaps: Timeslot[],
+): ScheduleConflictResponse {
+  return {
+    error: "This timeslot overlaps with existing entries.",
+    overlaps: overlaps.map((slot) => ({
+      id: slot.getId(),
+      name: slot.getName(),
+      startTime: {
+        hour: slot.getStartTime().hour,
+        minute: slot.getStartTime().minute,
+      },
+      endTime: {
+        hour: slot.getEndTime().hour,
+        minute: slot.getEndTime().minute,
+      },
+    })),
+  }
 }
 
 // Adapt domain entities to plain JSON DTOs; clients never receive class instances.
@@ -131,10 +162,7 @@ function isProfileId(value: string): boolean {
 
 // Build domain objects only after request validation has succeeded.
 // Updates keep the existing ID; creates get a fresh server-generated ID.
-function createTimeslot(
-  dto: CreateTimeslotDto,
-  id: string = randomUUID(),
-): Timeslot {
+function createTimeslot(dto: SaveTimeslotDto, id: string = randomUUID()): Timeslot {
   return new Timeslot(
     new Day(dto.startTime.hour, dto.startTime.minute),
     new Day(dto.endTime.hour, dto.endTime.minute),
@@ -158,7 +186,7 @@ app.post("/api/profiles/:profileId/timeslots", (req, res) => {
   const body: unknown = req.body
 
   // Reject missing or incorrectly typed fields before creating scheduler objects.
-  if (!isCreateTimeslotRequest(body)) {
+  if (!isSaveTimeslotRequest(body)) {
     return res.status(400).json({ error: "Invalid timeslot values" })
   }
 
@@ -170,7 +198,14 @@ app.post("/api/profiles/:profileId/timeslots", (req, res) => {
     return res.status(400).json({ error: "End time must be after start time" })
   }
 
-  scheduleStore.get(profileId).addTimeslot(createTimeslot(body))
+  const schedule = scheduleStore.get(profileId)
+  const timeslot = createTimeslot(body)
+  const overlaps = schedule.findOverlaps(timeslot)
+  if (hasUnconfirmedOverlaps(overlaps, body.confirmedOverlapIds)) {
+    return res.status(409).json(getOverlapResponse(overlaps))
+  }
+
+  schedule.addTimeslot(timeslot)
 
   // Return the full updated schedule so the client can refresh its display.
   return res.status(201).json(getSchedulesResponse(profileId))
@@ -185,7 +220,7 @@ app.put("/api/profiles/:profileId/timeslots/:timeslotId", (req, res) => {
   }
 
   const body: unknown = req.body
-  if (!isCreateTimeslotRequest(body)) {
+  if (!isSaveTimeslotRequest(body)) {
     return res.status(400).json({ error: "Invalid timeslot values" })
   }
   if (
@@ -196,10 +231,16 @@ app.put("/api/profiles/:profileId/timeslots/:timeslotId", (req, res) => {
   }
 
   const schedule = scheduleStore.find(profileId)
-  if (
-    !schedule ||
-    !schedule.updateTimeslot(timeslotId, createTimeslot(body, timeslotId))
-  ) {
+  if (!schedule) {
+    return res.status(404).json({ error: "Timeslot not found" })
+  }
+
+  const replacement = createTimeslot(body, timeslotId)
+  const overlaps = schedule.findOverlaps(replacement, timeslotId)
+  if (hasUnconfirmedOverlaps(overlaps, body.confirmedOverlapIds)) {
+    return res.status(409).json(getOverlapResponse(overlaps))
+  }
+  if (!schedule.updateTimeslot(timeslotId, replacement)) {
     return res.status(404).json({ error: "Timeslot not found" })
   }
 

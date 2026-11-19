@@ -47,12 +47,18 @@ flowchart LR
   schedule editor and loads the default profile's schedule.
 - The schedules page displays timeslots by weekday and lets the user add or
   edit a specific entry. After each save, the server returns the updated
-  profile schedule and the client replaces its schedule state.
+  profile schedule and the client replaces its schedule state. Each weekday is
+  ordered by start time, end time, then stable ID, independent of insertion
+  order.
 - `client/src/api.ts` owns the Axios instance and endpoint paths. Set
   `VITE_API_BASE_URL` to override its default API origin of
   `http://localhost:8080`.
 - The API validates create and update requests, converts them to `Day` and
   `Timeslot` domain objects, and stores them in a profile-scoped `Schedule`.
+- Before a create or update that overlaps an existing slot, the API returns
+  HTTP 409 with the conflicting entries. The editor displays those conflicts
+  and only retries with the acknowledged conflict IDs after the user chooses
+  “Save anyway”. Newly appeared conflicts must be reviewed before saving.
 - Schedule endpoints are `GET /api/profiles/:profileId/schedules`,
   `POST /api/profiles/:profileId/timeslots`, and
   `PUT /api/profiles/:profileId/timeslots/:timeslotId`. The current client uses
@@ -69,8 +75,8 @@ flowchart LR
   them, including the default profile's sample timeslot.
 - The server CORS configuration is restricted to the Vite development origin;
   deployments will need an explicit allowed-origin configuration.
-- The server warns about overlapping timeslots but still adds them. The
-  product behavior for conflicts has not been chosen yet.
+- The server allows overlaps after the user explicitly acknowledges each
+  conflict; automatic resolution or blocking is not implemented.
 
 The schedule model, priority data, flexible-time hooks, and overlap check are
 retained as foundations for future auto-scheduling. The evolutionary solver is
@@ -89,11 +95,14 @@ not implemented yet.
   characters. The shared policy is applied by both the editor and API, and the
   domain object checks it too. When a settings page is added, settings can be
   supplied per profile to allow negative priorities or change the name limit.
+- Descriptions are optional; blank descriptions are stored as an empty string.
 - A **Day** value represents a wall-clock hour and minute, not a calendar date
   or timezone. Its cached minute count supports ordering and overlap checks.
-- Overlap detection currently logs warnings and permits the write. Define the
-  conflict policy before changing that behavior or using it as an optimizer
-  constraint.
+- Overlap detection uses half-open time ranges, so adjacent entries are allowed.
+  Conflicts are reported before the write; the user can explicitly allow them.
+- Slots are ordered by start time, end time, then stable ID. A database-backed
+  query can preserve this order with `ORDER BY weekday, start_time, end_time, id`;
+  insertion order is not part of the schedule contract.
 - `fuzzy` is a reserved domain hook: the current API and editor require fixed
   start and end times. Flexible-time inputs need a separate contract before
   that hook can drive auto-scheduling.

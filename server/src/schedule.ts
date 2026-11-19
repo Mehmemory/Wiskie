@@ -13,14 +13,32 @@ export class Schedule {
         this.timeslots = [[], [], [], [], [], [], []];
     }
 
-    /** Add a slot to its weekday bucket and report (but do not reject) overlaps. */
+    /** Add a slot and keep its weekday bucket in deterministic display order. */
     addTimeslot(timeslot: Timeslot) {
         if (timeslot.getWeekday() < 0 || timeslot.getWeekday() > 6) {
             throw new Error("Weekday must be between 0 and 6");
         }
 
-        this.warnAboutOverlaps(timeslot);
-        this.timeslots[timeslot.getWeekday()].push(timeslot);
+        const day = this.timeslots[timeslot.getWeekday()];
+        day.push(timeslot);
+        this.sortDay(day);
+    }
+
+    /**
+     * Find overlaps for a candidate. An optional ID is excluded when checking
+     * an edit so a slot never conflicts with itself.
+     */
+    findOverlaps(candidate: Timeslot, excludeId?: string): Timeslot[] {
+        return this.timeslots[candidate.getWeekday()].filter((existing) => {
+            if (existing.getId() === excludeId) return false
+
+            return (
+                candidate.getStartTime().timeinminutes <
+                  existing.getEndTime().timeinminutes &&
+                existing.getStartTime().timeinminutes <
+                  candidate.getEndTime().timeinminutes
+            )
+        })
     }
 
     /**
@@ -42,24 +60,27 @@ export class Schedule {
         );
         const [existing] = this.timeslots[existingDay].splice(existingIndex, 1);
         if (!existing) return false;
-        this.warnAboutOverlaps(replacement);
-        this.timeslots[replacement.getWeekday()].push(replacement);
+        const day = this.timeslots[replacement.getWeekday()];
+        day.push(replacement);
+        this.sortDay(day);
         return true;
     }
 
-    // Half-open interval comparison allows adjacent slots (e.g. 10:00–11:00
-    // and 11:00–12:00) without treating their shared boundary as an overlap.
-    private warnAboutOverlaps(timeslot: Timeslot) {
-        const dayTimeslots = this.timeslots[timeslot.getWeekday()];
-
-        for (const existing of dayTimeslots) {
-            const overlaps =
-                timeslot.getStartTime().timeinminutes < existing.getEndTime().timeinminutes &&
-                existing.getStartTime().timeinminutes < timeslot.getEndTime().timeinminutes;
-
-            if (overlaps) {
-                console.warn(`Timeslot overlaps with existing timeslot: ${existing.getName()}`);
-            }
-        }
+    /**
+     * Ordering is derived from slot data, not insertion position. A database
+     * implementation can use ORDER BY start time, end time, then stable ID.
+     */
+    private sortDay(day: Timeslot[]) {
+        day.sort((left, right) =>
+            left.getStartTime().timeinminutes -
+              right.getStartTime().timeinminutes ||
+            left.getEndTime().timeinminutes -
+              right.getEndTime().timeinminutes ||
+            (left.getId() < right.getId()
+              ? -1
+              : left.getId() > right.getId()
+                ? 1
+                : 0),
+        )
     }
 }

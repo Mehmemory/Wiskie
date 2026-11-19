@@ -31,6 +31,25 @@ export type CreateTimeslotDto = Omit<
   endTime: DayDto
 }
 
+/** IDs of overlaps the user has reviewed and explicitly agreed to allow. */
+export type SaveTimeslotDto = CreateTimeslotDto & {
+  confirmedOverlapIds?: string[]
+}
+
+/** Conflicting existing entry returned before a potentially overlapping save. */
+export type TimeslotOverlapDto = {
+  id: string
+  name: string
+  startTime: DayDto
+  endTime: DayDto
+}
+
+/** Conflict response leaves the schedule unchanged until explicitly overridden. */
+export type ScheduleConflictResponse = {
+  error: string
+  overlaps: TimeslotOverlapDto[]
+}
+
 /** One weekly schedule, grouped by weekday with Sunday at index zero. */
 export type ScheduleDto = {
   timeslots: TimeslotDto[][]

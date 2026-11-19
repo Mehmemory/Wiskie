@@ -5,7 +5,10 @@ import axios from "axios"
 import type {
   CreateTimeslotDto,
   DayDto,
+  SaveTimeslotDto,
+  ScheduleConflictResponse,
   ScheduleDto,
+  TimeslotOverlapDto,
   TimeslotDto,
 } from "../../../shared/api-types"
 import { DEFAULT_PROFILE_ID } from "../../../shared/api-types"
@@ -21,7 +24,7 @@ type SchedulesProps = {
 type TimeslotFormProps = {
   initialValues?: TimeslotDto
   submitLabel: string
-  onSave: (timeslot: CreateTimeslotDto) => Promise<void>
+  onSave: (timeslot: SaveTimeslotDto) => Promise<void>
   onCancel?: () => void
 }
 
@@ -80,11 +83,46 @@ function TimeslotForm({
   onCancel,
 }: TimeslotFormProps) {
   const [error, setError] = useState<string | null>(null)
+  const [overlaps, setOverlaps] = useState<TimeslotOverlapDto[] | null>(null)
+  const [pendingTimeslot, setPendingTimeslot] =
+    useState<CreateTimeslotDto | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function saveTimeslot(timeslot: CreateTimeslotDto, confirm = false) {
+    setError(null)
+    setIsSubmitting(true)
+    try {
+      await onSave(
+        confirm
+          ? {
+              ...timeslot,
+              confirmedOverlapIds: overlaps?.map((overlap) => overlap.id) ?? [],
+            }
+          : timeslot,
+      )
+      setOverlaps(null)
+      setPendingTimeslot(null)
+    } catch (saveError) {
+      if (
+        axios.isAxiosError<ScheduleConflictResponse>(saveError) &&
+        saveError.response?.status === 409 &&
+        Array.isArray(saveError.response.data?.overlaps)
+      ) {
+        setPendingTimeslot(timeslot)
+        setOverlaps(saveError.response.data.overlaps)
+      } else {
+        setError(getErrorMessage(saveError))
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
+    setOverlaps(null)
+    setPendingTimeslot(null)
 
     const data = new FormData(event.currentTarget)
     const name = data.get("name")
@@ -109,7 +147,7 @@ function TimeslotForm({
     // IDs are intentionally absent: the server owns resource identity.
     const timeslot: CreateTimeslotDto = {
       name,
-      description,
+      description: description.trim(),
       weekday: Number(weekdayValue),
       startTime,
       endTime,
@@ -117,18 +155,18 @@ function TimeslotForm({
       freetime: data.has("freetime"),
     }
 
-    setIsSubmitting(true)
-    try {
-      await onSave(timeslot)
-    } catch (saveError) {
-      setError(getErrorMessage(saveError))
-    } finally {
-      setIsSubmitting(false)
-    }
+    await saveTimeslot(timeslot)
   }
 
   return (
-    <form className="timeslot-form" onSubmit={handleSubmit}>
+    <form
+      className="timeslot-form"
+      onSubmit={handleSubmit}
+      onChange={() => {
+        setOverlaps(null)
+        setPendingTimeslot(null)
+      }}
+    >
       <label>
         Name
         <input
@@ -140,10 +178,9 @@ function TimeslotForm({
         />
       </label>
       <label>
-        Description
+        Description (optional)
         <textarea
           name="description"
-          required
           rows={2}
           defaultValue={initialValues?.description ?? ""}
         />
@@ -210,11 +247,36 @@ function TimeslotForm({
         />
         Free time
       </label>
+      {overlaps && (
+        <div className="timeslot-form__warning" role="alert">
+          <p>
+            This time overlaps with {overlaps.length === 1 ? "an existing entry" : "existing entries"}:
+          </p>
+          <ul>
+            {overlaps.map((overlap) => (
+              <li key={overlap.id}>
+                {overlap.name} ({formatTime(overlap.startTime)}–
+                {formatTime(overlap.endTime)})
+              </li>
+            ))}
+          </ul>
+          <p>          You can adjust the time or explicitly approve these conflicts.</p>
+        </div>
+      )}
       {error && <p className="timeslot-form__error" role="alert">{error}</p>}
       <div className="timeslot-form__actions">
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Saving..." : submitLabel}
         </button>
+        {overlaps && pendingTimeslot && (
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => saveTimeslot(pendingTimeslot, true)}
+          >
+            Save anyway
+          </button>
+        )}
         {onCancel && (
           <button type="button" className="button-secondary" onClick={onCancel}>
             Cancel
@@ -234,13 +296,13 @@ function Schedules({ schedules, onSchedulesChange }: SchedulesProps) {
 
   // Replace client state with the server snapshot to keep validation and
   // ordering decisions authoritative on the backend.
-  async function saveNewTimeslot(timeslot: CreateTimeslotDto) {
+  async function saveNewTimeslot(timeslot: SaveTimeslotDto) {
     const response = await createTimeslot(DEFAULT_PROFILE_ID, timeslot)
     onSchedulesChange(response.schedules)
     setIsAdding(false)
   }
 
-  async function saveTimeslot(id: string, timeslot: CreateTimeslotDto) {
+  async function saveTimeslot(id: string, timeslot: SaveTimeslotDto) {
     const response = await updateTimeslot(DEFAULT_PROFILE_ID, id, timeslot)
     onSchedulesChange(response.schedules)
     setEditingTimeslotId(null)
