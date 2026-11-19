@@ -14,6 +14,7 @@ import type {
 import { DEFAULT_PROFILE_ID } from "../shared/api-types"
 
 const app = express();
+// The development client and API use separate origins.
 const corsOptions = {
     origin: ["http://localhost:5173"]
 };
@@ -21,32 +22,15 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Returns the server's basic status message and sample data.
-app.get("/api", (_req, res) => {
-    res.json({
-        message: "Hello from server!",
-        hope: ["this", "works", "now"]
-    });
-});
-
-// Increments the number sent by the client and returns the result.
-app.post("/api/incriment", (req, res) => { 
-    const number = Number(req.body.number);
-    console.log("Received number from client:", number);
-    const incrementedNumber = number + 1;
-    console.log("Incremented number:", incrementedNumber);
-    res.json({ number: incrementedNumber });
-
-});
-
 const scheduleStore = new ProfileScheduleStore()
 
-// Checks whether an unknown value is a non-null JSON object.
+// JSON request bodies are untrusted at runtime even when their TypeScript
+// payload type is shared with the client.
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-// Checks whether an unknown value contains a valid 24-hour time.
+// Runtime guard for the nested time shape used by the shared DTO.
 function isDayDto(value: unknown): value is DayDto {
   if (!isRecord(value)) return false
 
@@ -62,7 +46,7 @@ function isDayDto(value: unknown): value is DayDto {
   )
 }
 
-// Validates the fields required to create a schedule timeslot.
+// TypeScript types disappear at runtime, so validate every required field here.
 function isCreateTimeslotRequest(value: unknown): value is CreateTimeslotDto {
   if (!isRecord(value)) return false
 
@@ -83,7 +67,7 @@ function isCreateTimeslotRequest(value: unknown): value is CreateTimeslotDto {
   )
 }
 
-// Converts one profile's in-memory schedule into the API response shape.
+// Adapt domain entities to plain JSON DTOs; clients never receive class instances.
 function getSchedulesResponse(profileId: ProfileId): SchedulesResponse {
   const schedule = scheduleStore.get(profileId)
   return {
@@ -116,6 +100,8 @@ function isProfileId(value: string): boolean {
   return /^[a-zA-Z0-9_-]{1,64}$/.test(value)
 }
 
+// Build domain objects only after request validation has succeeded.
+// Updates keep the existing ID; creates get a fresh server-generated ID.
 function createTimeslot(
   dto: CreateTimeslotDto,
   id: string = randomUUID(),
@@ -161,7 +147,8 @@ app.post("/api/profiles/:profileId/timeslots", (req, res) => {
   return res.status(201).json(getSchedulesResponse(profileId))
 })
 
-// Updates a timeslot only within the requested profile's schedule.
+// Updates a timeslot only within the requested profile's schedule. A slot ID
+// from another profile cannot resolve through this profile's Schedule.
 app.put("/api/profiles/:profileId/timeslots/:timeslotId", (req, res) => {
   const { profileId, timeslotId } = req.params
   if (!isProfileId(profileId)) {
@@ -190,7 +177,7 @@ app.put("/api/profiles/:profileId/timeslots/:timeslotId", (req, res) => {
   return res.json(getSchedulesResponse(profileId))
 })
 
-// Returns the schedule for the requested profile.
+// Reading creates an empty profile schedule on first access, ready for entries.
 app.get("/api/profiles/:profileId/schedules", (req, res) => {
   const { profileId } = req.params
   if (!isProfileId(profileId)) {
@@ -200,7 +187,7 @@ app.get("/api/profiles/:profileId/schedules", (req, res) => {
   return res.json(getSchedulesResponse(profileId))
 })
 
-// Seed the current default profile; additional profile schedules are created on demand.
+// Seed development data only for the default profile; other profiles start empty.
 scheduleStore.get(DEFAULT_PROFILE_ID).addTimeslot(
   new Timeslot(
     new Day(9, 0),          // start time

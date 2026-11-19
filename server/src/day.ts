@@ -1,9 +1,13 @@
 
+/**
+ * A validated 24-hour wall-clock time. `timeinminutes` lets schedule logic
+ * compare times without repeating hour/minute conversion.
+ */
 export class Day {
 
     hour: number;
     minute: number;
-    //use to compare time
+    // Cached scalar used for ordering and overlap checks.
     timeinminutes: number;
 
     constructor(hour: number, minute: number) {
@@ -16,7 +20,6 @@ export class Day {
         this.hour = hour;
         this.minute = minute;
         
-        //useful for comparing time
         this.timeinminutes = hour * 60 + minute;
     }
 

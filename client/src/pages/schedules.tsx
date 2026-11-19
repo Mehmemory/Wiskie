@@ -1,6 +1,5 @@
 import { useState } from "react"
 import type { FormEvent } from "react"
-import { Link } from "react-router-dom"
 import axios from "axios"
 
 import type {
@@ -13,6 +12,7 @@ import { DEFAULT_PROFILE_ID } from "../../../shared/api-types"
 import { createTimeslot, updateTimeslot } from "../api"
 
 type SchedulesProps = {
+  // The profile-scoped snapshot managed by App and returned by the API.
   schedules: ScheduleDto[]
   onSchedulesChange: (schedules: ScheduleDto[]) => void
 }
@@ -34,6 +34,7 @@ const dayNames = [
   "Saturday",
 ]
 
+// DTO times use numeric hour/minute fields; the editor displays standard 24-hour time.
 function formatTime(time: DayDto | null): string {
   if (!time) return "Unspecified"
 
@@ -42,11 +43,13 @@ function formatTime(time: DayDto | null): string {
   return `${hour}:${minute}`
 }
 
+// Convert a DTO time to the value expected by an HTML time input.
 function timeInputValue(time: DayDto | null | undefined): string {
   if (!time) return ""
   return `${String(time.hour).padStart(2, "0")}:${String(time.minute).padStart(2, "0")}`
 }
 
+// Parse browser form data defensively before building the typed API payload.
 function parseTime(value: FormDataEntryValue | null): DayDto | null {
   if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) return null
 
@@ -55,6 +58,7 @@ function parseTime(value: FormDataEntryValue | null): DayDto | null {
   return { hour, minute }
 }
 
+// Preserve server validation messages when available, with a useful network fallback.
 function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError<{ error?: string }>(error)) {
     return (
@@ -67,6 +71,7 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Could not save this timeslot."
 }
 
+// Shared by create and edit modes so both send the same create/update payload.
 function TimeslotForm({
   initialValues,
   submitLabel,
@@ -100,6 +105,7 @@ function TimeslotForm({
       return
     }
 
+    // IDs are intentionally absent: the server owns resource identity.
     const timeslot: CreateTimeslotDto = {
       name,
       description,
@@ -219,6 +225,8 @@ function Schedules({ schedules, onSchedulesChange }: SchedulesProps) {
   )
   const timeslotsByDay = schedules[0]?.timeslots ?? Array.from({ length: 7 }, () => [])
 
+  // Replace client state with the server snapshot to keep validation and
+  // ordering decisions authoritative on the backend.
   async function saveNewTimeslot(timeslot: CreateTimeslotDto) {
     const response = await createTimeslot(DEFAULT_PROFILE_ID, timeslot)
     onSchedulesChange(response.schedules)
@@ -264,6 +272,7 @@ function Schedules({ schedules, onSchedulesChange }: SchedulesProps) {
 
       <div className="schedule-editor__days">
         {dayNames.map((day, dayIndex) => {
+          // The API groups slots into seven Sunday-first buckets (0 through 6).
           const dayTimeslots = timeslotsByDay[dayIndex] ?? []
 
           return (
@@ -331,11 +340,6 @@ function Schedules({ schedules, onSchedulesChange }: SchedulesProps) {
         })}
       </div>
 
-      <nav className="schedule-editor__navigation" aria-label="Main navigation">
-        <Link to="/">Home</Link>
-        <Link to="/base">About</Link>
-        <Link to="/editor">Editor</Link>
-      </nav>
     </main>
   )
 }

@@ -14,18 +14,12 @@ flowchart LR
 
   subgraph client[client/src]
     entry[main.tsx] --> app[App.tsx<br/>router and schedule state]
-    app --> home[Home route]
-    app --> schedules[Schedules route]
-    app --> base[Base route<br/>placeholder]
-    app --> editor[Editor route<br/>placeholder]
-    home --> clientApi[api.ts<br/>Axios client]
-    app --> clientApi
+    app --> schedules[Schedules editor]
+    app --> clientApi[api.ts<br/>Axios client]
     schedules --> clientApi
   end
   react --> entry
 
-  clientApi -->|GET /api| api
-  clientApi -->|POST /api/incriment| api
   clientApi -->|GET profile schedule| api
   clientApi -->|POST new timeslot| api
   clientApi -->|PUT existing timeslot| api
@@ -49,9 +43,8 @@ flowchart LR
 
 ### Current request flow
 
-- `main.tsx` mounts the React app. `App.tsx` defines the routes and fetches the
-  initial schedule and greeting data when it mounts.
-- The home page displays the greeting and has a demo increment request.
+- `main.tsx` mounts the React app. `App.tsx` redirects the root route to the
+  schedule editor and loads the default profile's schedule.
 - The schedules page displays timeslots by weekday and lets the user add or
   edit a specific entry. After each save, the server returns the updated
   profile schedule and the client replaces its schedule state.
@@ -76,14 +69,34 @@ flowchart LR
   them, including the default profile's sample timeslot.
 - The server CORS configuration is restricted to the Vite development origin;
   deployments will need an explicit allowed-origin configuration.
-- `Base` and `Editor` are placeholder pages. The increment and greeting
-  endpoints are demo functionality rather than schedule features.
 - The server warns about overlapping timeslots but still adds them. The
   product behavior for conflicts has not been chosen yet.
 
-These are the current implementation boundaries, not promises about the final
-design. Next, decide the desired schedule persistence and overlap behavior
-before extending the editor further.
+The schedule model, priority data, flexible-time hooks, and overlap check are
+retained as foundations for future auto-scheduling. The evolutionary solver is
+not implemented yet.
+
+## Domain glossary
+
+- **Profile** owns one **Schedule**. The store is currently in-memory and uses
+  `default` until profile selection and durable storage are added.
+- A **Schedule** groups **Timeslots** into seven weekday buckets, with Sunday
+  at index `0`. The same structure is represented in API responses as
+  `ScheduleDto`.
+- A **Timeslot** is a scheduled or free-time block. Its server-assigned ID
+  remains stable when edited; `CreateTimeslotDto` intentionally has no ID.
+- A **Day** value represents a wall-clock hour and minute, not a calendar date
+  or timezone. Its cached minute count supports ordering and overlap checks.
+- Overlap detection currently logs warnings and permits the write. Define the
+  conflict policy before changing that behavior or using it as an optimizer
+  constraint.
+- `fuzzy` is a reserved domain hook: the current API and editor require fixed
+  start and end times. Flexible-time inputs need a separate contract before
+  that hook can drive auto-scheduling.
+
+The evolutionary solver is not implemented yet. Treat priorities, free-time
+flags, profile ownership, and overlap checks as inputs or constraints for that
+future work; keep optimization logic separate from HTTP handlers and UI code.
 
 ## Run locally
 

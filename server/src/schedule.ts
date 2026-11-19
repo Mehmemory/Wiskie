@@ -1,5 +1,9 @@
 import { Timeslot } from "./timeslot";
 
+/**
+ * One profile's weekly schedule. Each of the seven array buckets corresponds
+ * to a Sunday-first weekday index and contains that day's Timeslot entities.
+ */
 export class Schedule {
 
     public timeslots: Timeslot[][];
@@ -9,6 +13,7 @@ export class Schedule {
         this.timeslots = [[], [], [], [], [], [], []];
     }
 
+    /** Add a slot to its weekday bucket and report (but do not reject) overlaps. */
     addTimeslot(timeslot: Timeslot) {
         if (timeslot.getWeekday() < 0 || timeslot.getWeekday() > 6) {
             throw new Error("Weekday must be between 0 and 6");
@@ -18,6 +23,10 @@ export class Schedule {
         this.timeslots[timeslot.getWeekday()].push(timeslot);
     }
 
+    /**
+     * Replace a slot by stable ID, moving it to a new weekday if needed.
+     * Returns false when the ID is not in this schedule.
+     */
     updateTimeslot(id: string, replacement: Timeslot): boolean {
         if (replacement.getWeekday() < 0 || replacement.getWeekday() > 6) {
             throw new Error("Weekday must be between 0 and 6");
@@ -38,6 +47,8 @@ export class Schedule {
         return true;
     }
 
+    // Half-open interval comparison allows adjacent slots (e.g. 10:00–11:00
+    // and 11:00–12:00) without treating their shared boundary as an overlap.
     private warnAboutOverlaps(timeslot: Timeslot) {
         const dayTimeslots = this.timeslots[timeslot.getWeekday()];
 

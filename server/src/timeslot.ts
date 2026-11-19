@@ -1,7 +1,13 @@
 import { Day } from "./day"
 
+/**
+ * Domain entity for one scheduled or free-time block. A Timeslot belongs to
+ * one Schedule; its stable ID is retained when the editor replaces its values.
+ */
 export class Timeslot {
 
+    // Reserved for future flexible-time scheduling. Current API inputs require
+    // concrete start/end values, so current slots are not fuzzy.
     public fuzzy: boolean;
     
     constructor(
@@ -27,9 +33,9 @@ export class Timeslot {
         else {
             this.fuzzy = true;
         }
-    } // end of constructor
+    }
 
-
+    /** Stable identity used by profile-scoped update requests. */
     getId(): string {
         return this.id;
     }
@@ -56,6 +62,8 @@ export class Timeslot {
         return this.freetime;
     }
 
+    // These guarded mutations are useful when adjusting a slot in domain logic;
+    // current API updates build a validated replacement Timeslot instead.
     newStartTime(newStartTime: Day): void {
         if (this.endTime && newStartTime.timeinminutes > this.endTime.timeinminutes) {
             throw new Error("New start time cannot be after end time");
