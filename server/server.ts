@@ -12,6 +12,7 @@ import type {
   SchedulesResponse,
 } from "../shared/api-types"
 import { DEFAULT_PROFILE_ID } from "../shared/api-types"
+import { DEFAULT_SCHEDULE_SETTINGS } from "../shared/schedule-settings"
 
 const app = express();
 // Vite can fall back to another port when 5173 is occupied; allow only local
@@ -78,6 +79,8 @@ function isCreateTimeslotRequest(value: unknown): value is CreateTimeslotDto {
   return (
     typeof value.name === "string" &&
     value.name.trim().length > 0 &&
+    value.name.trim().length <=
+      DEFAULT_SCHEDULE_SETTINGS.maxTimeslotNameLength &&
     typeof value.description === "string" &&
     value.description.trim().length > 0 &&
     Number.isInteger(value.weekday) &&
@@ -87,8 +90,9 @@ function isCreateTimeslotRequest(value: unknown): value is CreateTimeslotDto {
     isDayDto(value.startTime) &&
     isDayDto(value.endTime) &&
     typeof value.freetime === "boolean" &&
+    typeof value.priority === "number" &&
     Number.isInteger(value.priority) &&
-    typeof value.priority === "number"
+    (DEFAULT_SCHEDULE_SETTINGS.allowNegativePriority || value.priority >= 0)
   )
 }
 

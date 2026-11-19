@@ -1,4 +1,8 @@
 import { Day } from "./day"
+import {
+    DEFAULT_SCHEDULE_SETTINGS,
+    type ScheduleSettings,
+} from "../../shared/schedule-settings"
 
 /**
  * Domain entity for one scheduled or free-time block. A Timeslot belongs to
@@ -19,7 +23,17 @@ export class Timeslot {
         private priority: number,
         private description: string,
         private readonly id: string,
+        settings: ScheduleSettings = DEFAULT_SCHEDULE_SETTINGS,
     ) {
+        if (name.length > settings.maxTimeslotNameLength) {
+            throw new Error(
+                `Timeslot name must be ${settings.maxTimeslotNameLength} characters or fewer`,
+            );
+        }
+        if (!settings.allowNegativePriority && priority < 0) {
+            throw new Error("Priority cannot be negative");
+        }
+
         if (endTime && startTime) {
             if (endTime.timeinminutes < startTime.timeinminutes) {
                 throw new Error("End time cannot be before start time");

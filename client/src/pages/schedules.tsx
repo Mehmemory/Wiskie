@@ -9,6 +9,7 @@ import type {
   TimeslotDto,
 } from "../../../shared/api-types"
 import { DEFAULT_PROFILE_ID } from "../../../shared/api-types"
+import { DEFAULT_SCHEDULE_SETTINGS } from "../../../shared/schedule-settings"
 import { createTimeslot, updateTimeslot } from "../api"
 
 type SchedulesProps = {
@@ -134,6 +135,7 @@ function TimeslotForm({
           type="text"
           name="name"
           required
+          maxLength={DEFAULT_SCHEDULE_SETTINGS.maxTimeslotNameLength}
           defaultValue={initialValues?.name ?? ""}
         />
       </label>
@@ -170,6 +172,11 @@ function TimeslotForm({
             type="number"
             name="priority"
             step="1"
+            min={
+              DEFAULT_SCHEDULE_SETTINGS.allowNegativePriority
+                ? undefined
+                : 0
+            }
             required
             defaultValue={initialValues?.priority ?? 1}
           />

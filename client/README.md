@@ -85,6 +85,10 @@ not implemented yet.
   `ScheduleDto`.
 - A **Timeslot** is a scheduled or free-time block. Its server-assigned ID
   remains stable when edited; `CreateTimeslotDto` intentionally has no ID.
+- Default schedule settings reject negative priorities and limit names to 100
+  characters. The shared policy is applied by both the editor and API, and the
+  domain object checks it too. When a settings page is added, settings can be
+  supplied per profile to allow negative priorities or change the name limit.
 - A **Day** value represents a wall-clock hour and minute, not a calendar date
   or timezone. Its cached minute count supports ordering and overlap checks.
 - Overlap detection currently logs warnings and permits the write. Define the
